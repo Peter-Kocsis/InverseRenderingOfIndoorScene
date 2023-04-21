@@ -4,6 +4,8 @@ import os.path as osp
 from PIL import Image
 import random
 import struct
+
+from einops import rearrange
 from torch.utils.data import Dataset
 import scipy.ndimage as ndimage
 import cv2
@@ -13,9 +15,11 @@ import scipy.ndimage as ndimage
 
 
 class BatchLoader(Dataset):
-    def __init__(self, dataRoot, dirs = ['main_xml', 'main_xml1',
-        'mainDiffLight_xml', 'mainDiffLight_xml1', 
-        'mainDiffMat_xml', 'mainDiffMat_xml1'], 
+    def __init__(self, dataRoot, dirs = ['main_xml',
+        #                                  'main_xml1',
+        # 'mainDiffLight_xml', 'mainDiffLight_xml1',
+        # 'mainDiffMat_xml', 'mainDiffMat_xml1'
+                                         ],
             imHeight = 240, imWidth = 320, 
             phase='TRAIN', rseed = None, cascadeLevel = 0,
             isLight = False, isAllLight = False,
@@ -62,6 +66,8 @@ class BatchLoader(Dataset):
         if isAllLight:
             self.imList = [x for x in self.imList if
                     osp.isfile(x.replace('im_', 'imenv_') ) ]
+            self.imList = [x for x in self.imList if
+                    osp.isfile(x.replace('im_', 'imsgEnv_').replace('hdr', 'h5') ) ]
             if cascadeLevel > 0:
                 self.imList = [x for x in self.imList if
                         osp.isfile(x.replace('im_',
@@ -90,9 +96,11 @@ class BatchLoader(Dataset):
 
         if self.cascadeLevel == 0:
             if self.isLight:
+                self.sgList = [x.replace('im_', 'imsgEnv_').replace('hdr', 'h5') for x in self.imList]
                 self.envList = [x.replace('im_', 'imenv_') for x in self.imList ]
         else:
             if self.isLight:
+                self.sgList = [x.replace('im_', 'imsgEnv_').replace('hdr', 'h5') for x in self.imList]
                 self.envList = [x.replace('im_', 'imenv_') for x in self.imList ]
                 self.envPreList = [x.replace('im_', 'imenv_').replace('.hdr', '_%d.h5'  % (self.cascadeLevel -1) ) for x in self.imList ]
             
@@ -150,6 +158,8 @@ class BatchLoader(Dataset):
         depth = self.loadBinary(self.depthList[self.perm[ind] ])
 
         if self.isLight == True:
+            sgenv = self.loadSG(self.sgList[self.perm[ind] ])
+
             envmaps, envmapsInd = self.loadEnvmap(self.envList[self.perm[ind] ] )
             envmaps = envmaps * scale 
             if self.cascadeLevel > 0: 
@@ -197,6 +207,7 @@ class BatchLoader(Dataset):
                 }
 
         if self.isLight:
+            batchDict['sgenv'] = sgenv
             batchDict['envmaps'] = envmaps
             batchDict['envmapsInd'] = envmapsInd
 
@@ -254,7 +265,8 @@ class BatchLoader(Dataset):
         if self.phase.upper() == 'TRAIN':
             scale = (0.95 - 0.1 * np.random.random() )  / np.clip(intensityArr[int(0.95 * self.imWidth * self.imHeight * 3) ], 0.1, None)
         elif self.phase.upper() == 'TEST':
-            scale = (0.95 - 0.05)  / np.clip(intensityArr[int(0.95 * self.imWidth * self.imHeight * 3) ], 0.1, None)
+            # scale = (0.95 - 0.05)  / np.clip(intensityArr[int(0.95 * self.imWidth * self.imHeight * 3) ], 0.1, None)
+            scale = 1
         hdr = scale * hdr
         return np.clip(hdr, 0, 1), scale 
 
@@ -295,7 +307,8 @@ class BatchLoader(Dataset):
             assert( (envHeightOrig / self.envHeight) == (envWidthOrig / self.envWidth) )
             assert( envHeightOrig % self.envHeight == 0)
             
-            env = cv2.imread(envName, -1 ) 
+            env = cv2.imread(envName, -1 )
+            env = env[:, :, ::-1]
 
             if not env is None:
                 env = env.reshape(self.envRow, envHeightOrig, self.envCol,
@@ -314,6 +327,11 @@ class BatchLoader(Dataset):
                 envInd = np.zeros([1, 1, 1], dtype=np.float32 )
                 print('Warning: the envmap %s does not exist.' % envName )
                 return env, envInd
-                
 
             return env, envInd
+
+    def loadSG(self, path):
+        hf = h5py.File(path, 'r')
+        im = np.array(hf.get('data'))
+        im = rearrange(im, 'h w l g -> h w (l g)')
+        return im

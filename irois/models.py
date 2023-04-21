@@ -31,7 +31,7 @@ def LSregressDiffSpec(diff, spec, imOrig, diffOrig, specOrig ):
 
     diff = diff.view(nb, -1)
     spec = spec.view(nb, -1)
-    im = im.view(nb, -1)
+    im = im.reshape(nb, -1)
 
     a11 = torch.sum(diff * diff, dim=1)
     a22 = torch.sum(spec * spec, dim=1)
@@ -70,7 +70,7 @@ def LSregressDiffSpec(diff, spec, imOrig, diffOrig, specOrig ):
     # Do the regression twice to avoid clamping
     renderedImg = torch.clamp(diffScaled + specScaled, 0, 1)
     renderedImg = renderedImg.view(nb, -1)
-    imOrig = imOrig.view(nb, -1)
+    imOrig = imOrig.reshape(nb, -1)
 
     coefIm = (torch.sum(renderedImg * imOrig, dim = 1) \
             / torch.clamp(torch.sum(renderedImg * renderedImg, dim=1), min=1e-5) ).detach()
@@ -368,7 +368,7 @@ class output2env():
 
         self.ls.requires_grad = False
 
-    def fromSGtoIm(self, axis, lamb, weight ):
+    def fromSGtoIm(self, axis, lamb, weight, useGT=False):
         bn = axis.size(0)
         envRow, envCol = weight.size(2), weight.size(3)
 
@@ -388,16 +388,21 @@ class output2env():
 
         return envmaps
 
-    def output2env(self, axisOrig, lambOrig, weightOrig ):
-        bn, _, envRow, envCol = weightOrig.size()
+    def output2env(self, axisOrig, lambOrig, weightOrig, useGT=False):
+        if not useGT:
+            bn, _, envRow, envCol = weightOrig.size()
 
-        axis = axisOrig
+            axis = axisOrig
 
-        weight = 0.999 * weightOrig
-        weight = torch.tan(np.pi / 2 * weight )
+            weight = 0.999 * weightOrig
+            weight = torch.tan(np.pi / 2 * weight )
 
-        lambOrig = 0.999 * lambOrig
-        lamb = torch.tan(np.pi / 2 * lambOrig )
+            lambOrig = 0.999 * lambOrig
+            lamb = torch.tan(np.pi / 2 * lambOrig )
+        else:
+            axis = axisOrig
+            lamb = lambOrig
+            weight = weightOrig
 
         envmaps = self.fromSGtoIm(axis, lamb, weight )
 

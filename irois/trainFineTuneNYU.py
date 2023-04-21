@@ -5,7 +5,7 @@ import torch.optim as optim
 import argparse
 import random
 import os
-import models
+import irois.models as models
 import torchvision.utils as vutils
 import utils
 import nyuDataLoader as dataLoader_nyu
@@ -13,8 +13,8 @@ import dataLoader as dataLoader_ours
 import torch.nn as nn
 from torch.utils.data import DataLoader
 import torch.nn.functional as F
-import wrapperBRDF as wcg
-import wrapperNYU as wnyu
+import irois.wrapperBRDF as wcg
+import irois.wrapperNYU as wnyu
 import scipy.io as io
 import os.path as osp
 

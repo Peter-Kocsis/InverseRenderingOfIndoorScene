@@ -2,7 +2,7 @@ import torch
 from torch.autograd import Variable
 import numpy as np
 import torch.nn.functional as F
-import models
+import irois.models as models
 
 # Return triplet of predictions, ground-truth and error
 def wrapperBRDFLight(dataBatch, opt,
