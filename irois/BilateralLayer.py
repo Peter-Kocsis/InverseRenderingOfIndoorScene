@@ -10,7 +10,7 @@ import torchvision.transforms as transforms
 from torchvision import datasets
 import sys
 
-import BilateralGrid as bs
+import irois.BilateralGrid as bs
 
 
 ##############################################################################
